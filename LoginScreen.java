@@ -1,17 +1,24 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import javax.swing.*;
 
 public class LoginScreen extends JFrame {
 
-    private JTextField usernameField;
+    private JTextField userIDField; // Changed to match your usage
     private JPasswordField passwordField;
     private JComboBox<String> roleComboBox;
     private JButton loginButton;
 
     public LoginScreen() {
         super("FCI Seminar Management System");
+
+        // Initialize DB table on startup to avoid "no such table" errors
+        DatabaseHandler.createNewTable(); 
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(600, 400); 
@@ -26,9 +33,9 @@ public class LoginScreen extends JFrame {
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new GridLayout(3, 2, 10, 10)); 
 
-        formPanel.add(new JLabel("Username:"));
-        usernameField = new JTextField(15); 
-        formPanel.add(usernameField);
+        formPanel.add(new JLabel("User ID:")); // Label
+        userIDField = new JTextField(15); 
+        formPanel.add(userIDField);
 
         formPanel.add(new JLabel("Password:"));
         passwordField = new JPasswordField();
@@ -39,57 +46,76 @@ public class LoginScreen extends JFrame {
         roleComboBox = new JComboBox<>(roles);
         formPanel.add(roleComboBox);
 
-    
         JPanel wrapperPanel = new JPanel(new GridBagLayout()); 
         wrapperPanel.add(formPanel); 
         add(wrapperPanel, BorderLayout.CENTER);
 
-    
         loginButton = new JButton("Login");
-        
         JPanel btnPanel = new JPanel(); 
         btnPanel.add(loginButton);
         btnPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 20, 10));
         add(btnPanel, BorderLayout.SOUTH);
 
-        
+        // --- AUTHENTICATION LOGIC ---
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String username = usernameField.getText();
+                String userID = userIDField.getText();
                 String password = new String(passwordField.getPassword());
-                String role = (String) roleComboBox.getSelectedItem();
+                String selectedRole = (String) roleComboBox.getSelectedItem();
 
-                if(username.isEmpty() || password.isEmpty()) {
+                if(userID.isEmpty() || password.isEmpty()) {
                     JOptionPane.showMessageDialog(LoginScreen.this,
-                            "Please enter both username and password.",
+                            "Please enter both User ID and password.",
                             "Input Error",
                             JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
-                if(username.equals("admin") && password.equals("123")) {
-        
-                    // Credentials are correct, now check Role
-                    if(role.equals("Student")) {
-                        // SUCCESS: Transition to next screen
-                        JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Redirecting...");
-                        LoginScreen.this.dispose(); // Close Login Window
-                        new StudentRegistration(username);  // Open Student Window
+                // Query: Check if ID, Password, and Role match
+                // We SELECT 'username' because we want to GREET the user later
+                String sql = "SELECT user_id, username, role FROM users WHERE user_id = ? AND password = ? AND role = ?";
+
+                try (Connection conn = DatabaseHandler.connect();
+                     PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                
+                    // 1. Fill in the '?' placeholders
+                    pstmt.setString(1, userID);
+                    pstmt.setString(2, password);
+                    pstmt.setString(3, selectedRole); 
+                    
+                    // REMOVED INCORRECT LINE: pstmt.setString(4, username); 
+                    // (Variable 'username' didn't exist, and SQL only has 3 '?'s)
+
+                    ResultSet rs = pstmt.executeQuery();
+
+                    if(rs.next()) {
+                        // --- LOGIN SUCCESS ---
+                        
+                        // 2. RETRIEVE data from Database
+                        String dbUserId = rs.getString("user_id");
+                        String dbUsername = rs.getString("username"); // Get the actual name from DB
+
+                        if("Student".equals(selectedRole)) {
+                            JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Redirecting...");
+                            LoginScreen.this.dispose(); 
+                            
+                            // 3. PASS retrieved name to the next screen
+                            new StudentRegistration(dbUserId, dbUsername);  
+                        } else {
+                            JOptionPane.showMessageDialog(LoginScreen.this, 
+                                "Login Successful as " + selectedRole + ".\n(This dashboard is not ready yet)", 
+                                "Success", JOptionPane.INFORMATION_MESSAGE);
+                        }
                     } else {
-                        // Valid credentials, but Role is not Student (Just for testing)
                         JOptionPane.showMessageDialog(LoginScreen.this, 
-                            "Login Successful as " + role + ".\n(This dashboard is not ready yet)", 
-                            "Success", JOptionPane.INFORMATION_MESSAGE);
+                            "Invalid User ID, Password, or Role.\n", 
+                            "Login Failed", JOptionPane.ERROR_MESSAGE);
                     }
 
-                } else {
-                    // FAILED: Wrong credentials
-                    JOptionPane.showMessageDialog(LoginScreen.this, 
-                        "Invalid Username or Password.\n(Try: admin / 123)", 
-                        "Login Failed", JOptionPane.ERROR_MESSAGE);
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(LoginScreen.this, "Database Error: " + ex.getMessage());
                 }
-                
             }
         });
         
@@ -97,10 +123,6 @@ public class LoginScreen extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                new LoginScreen();
-            }
-        });
+        SwingUtilities.invokeLater(() -> new LoginScreen());
     }
 }

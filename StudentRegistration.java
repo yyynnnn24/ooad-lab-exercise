@@ -1,22 +1,6 @@
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.GridBagLayout;
-import java.awt.GridLayout;
+import java.awt.*;
 import java.io.File;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 
 public class StudentRegistration extends JFrame {
 
@@ -30,7 +14,7 @@ public class StudentRegistration extends JFrame {
 
     private String selectedFilePath = "";
 
-    public StudentRegistration() {
+    public StudentRegistration(String username) {
         setTitle("Student Registration");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(600, 500);
@@ -42,6 +26,11 @@ public class StudentRegistration extends JFrame {
         titleLabel.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10));
         add(titleLabel, BorderLayout.NORTH);
 
+        JLabel welcomeLabel = new JLabel("Welcome back, " + username, SwingConstants.CENTER);
+        welcomeLabel.setFont(new Font("Serif", Font.BOLD, 18));
+        welcomeLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        add(welcomeLabel, BorderLayout.NORTH); // Put it at the top (North is usually better for titles)
+        
         JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 10));
 
         formPanel.add(new JLabel("Research Title:"));
@@ -111,6 +100,6 @@ public class StudentRegistration extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new StudentRegistration());
+        SwingUtilities.invokeLater(() -> new StudentRegistration("Student"));
     }
 }

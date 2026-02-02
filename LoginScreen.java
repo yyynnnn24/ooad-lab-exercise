@@ -67,11 +67,29 @@ public class LoginScreen extends JFrame {
                             JOptionPane.ERROR_MESSAGE);
                     return;
                 }
+
+                if(username.equals("admin") && password.equals("123")) {
+        
+                    // Credentials are correct, now check Role
+                    if(role.equals("Student")) {
+                        // SUCCESS: Transition to next screen
+                        JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Redirecting...");
+                        LoginScreen.this.dispose(); // Close Login Window
+                        new StudentRegistration(username);  // Open Student Window
+                    } else {
+                        // Valid credentials, but Role is not Student (Just for testing)
+                        JOptionPane.showMessageDialog(LoginScreen.this, 
+                            "Login Successful as " + role + ".\n(This dashboard is not ready yet)", 
+                            "Success", JOptionPane.INFORMATION_MESSAGE);
+                    }
+
+                } else {
+                    // FAILED: Wrong credentials
+                    JOptionPane.showMessageDialog(LoginScreen.this, 
+                        "Invalid Username or Password.\n(Try: admin / 123)", 
+                        "Login Failed", JOptionPane.ERROR_MESSAGE);
+                }
                 
-                JOptionPane.showMessageDialog(LoginScreen.this,
-                        "Username: " + username + "\nPassword: " + password + "\nRole: " + role,
-                        "Login Info",
-                        JOptionPane.INFORMATION_MESSAGE);
             }
         });
         

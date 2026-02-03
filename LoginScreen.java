@@ -94,7 +94,7 @@ public class LoginScreen extends JFrame {
                             JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Redirecting...");
                             LoginScreen.this.dispose();
                             new StudentRegistration(dbUserId, dbUsername);
-                        } else if ("Staff".equals(selectedRole)) {
+                        } else if ("Coordinator".equals(selectedRole)) {
                             JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Opening Coordinator Dashboard...");
                             LoginScreen.this.dispose();
                             new CoordinatorDashboard(dbUserId, dbUsername);

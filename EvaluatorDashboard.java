@@ -1,7 +1,8 @@
 import java.awt.*;
+import java.io.File;
 import java.sql.*;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.DefaultTableModel;    //open uploaded file (image/pdf) using OS default app             
 
 // EvaluatorDashboard allows evaluators to view and evaluate assigned submissions
 // This dashboard is part of the Evaluation module implemented by Member 3
@@ -29,8 +30,9 @@ public class EvaluatorDashboard extends JFrame {
         header.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
         add(header, BorderLayout.NORTH);
 
-        // Table columns (submit_id is used internally for evaluation linking)
-        String[] cols = {"Submit ID", "Student ID", "Student Name", "Title", "Type", "Status", "My Score"};
+        
+        String[] cols = {"Submit ID", "Student ID", "Student Name", "Title", "Type", "Status", "My Score", "File Path"}; // ✅ ADD (Member 3)
+
         model = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -45,12 +47,16 @@ public class EvaluatorDashboard extends JFrame {
         JPanel btnPanel = new JPanel();
         JButton refreshBtn = new JButton("Refresh");
         JButton evaluateBtn = new JButton("Evaluate Selected");
+        JButton viewFileBtn = new JButton("View File");
+        btnPanel.add(viewFileBtn);
         btnPanel.add(evaluateBtn);
         btnPanel.add(refreshBtn);
         add(btnPanel, BorderLayout.SOUTH);
 
         // Reload assigned submissions from database
         refreshBtn.addActionListener(e -> loadAssigned());
+
+        viewFileBtn.addActionListener(e -> openSelectedFile()); 
 
         // Open evaluation dialog for selected submission
         evaluateBtn.addActionListener(e -> openEvaluateDialog());
@@ -67,7 +73,7 @@ public class EvaluatorDashboard extends JFrame {
         // LEFT JOIN evaluations allows checking evaluation status and score
         String sql =
             "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
-            "       s.title, s.type, " +
+            "       s.title, s.type, s.filepath, " +
             "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
             "       COALESCE(e.total, '-') AS my_total " +
             "FROM assignments a " +
@@ -91,7 +97,7 @@ public class EvaluatorDashboard extends JFrame {
                 String type = rs.getString("type");
                 String status = rs.getString("status");
                 String myTotal = String.valueOf(rs.getObject("my_total"));
-
+                String filepath = rs.getString("filepath");
                 model.addRow(new Object[]{
                         submitId, studentId, studentName, title, type, status, myTotal
                 });
@@ -122,6 +128,42 @@ public class EvaluatorDashboard extends JFrame {
         // Refresh table after evaluation is saved or updated
         loadAssigned();
     }
+    // Open the uploaded poster/image/PDF file for evaluator viewing
+private void openSelectedFile() {
+    // Get selected row from the assigned submissions table
+    int row = assignedTable.getSelectedRow();
+    if (row == -1) {
+        JOptionPane.showMessageDialog(this, "Please select a submission first.");
+        return;
+    }
+
+    // File path is stored in the last column of the table
+    String filepath = (String) model.getValueAt(row, 7);
+    if (filepath == null || filepath.trim().isEmpty() || "null".equalsIgnoreCase(filepath.trim())) {
+        JOptionPane.showMessageDialog(this, "No file uploaded for this submission.");
+        return;
+    }
+
+    try {
+        // Create file object using the stored file path
+        File f = new File(filepath);
+        if (!f.exists()) {
+            JOptionPane.showMessageDialog(this, "File not found:\n" + filepath);
+            return;
+        }
+
+        // Check whether Desktop API is supported on the system
+        if (!Desktop.isDesktopSupported()) {
+            JOptionPane.showMessageDialog(this, "Desktop open is not supported on this system.");
+            return;
+        }
+
+        // Open the file using the system's default application
+        Desktop.getDesktop().open(f);
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(this, "Cannot open file: " + ex.getMessage());
+    }
+}
 
     // Public refresh method used by EvaluationDialog if needed
     public void refresh() {

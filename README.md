@@ -1,7 +1,7 @@
 # FCI Seminar Management System
 
 ===================================================================
-                   ⚠️ HOW TO RUN THE PROJECT ⚠️
+                   ⚠️ HOW TO RUN THE PROJECT ⚠️ you can also use Run.bat to run
 ===================================================================
 
 There are two ways to run Java programs, depending on whether we are 

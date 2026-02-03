@@ -38,7 +38,7 @@ public class CoordinatorDashboard extends JFrame {
         JPanel btnPanel = new JPanel();
         JButton createSessionBtn = new JButton("Create New Session");
         JButton assignBtn = new JButton("Assign Selected to Session");
-        JButton viewSessionsBtn = new JButton("View All Sessions"); // New Feature
+        JButton viewSessionsBtn = new JButton("View All Sessions");
         JButton refreshBtn = new JButton("Refresh List");
 
         btnPanel.add(createSessionBtn);
@@ -69,7 +69,6 @@ public class CoordinatorDashboard extends JFrame {
 
     private void loadSubmissions() {
         tableModel.setRowCount(0); 
-        // Logic: Get students and check if they are already in the 'assignments' table
         String sql = "SELECT u.user_id, u.username, s.title, s.type, " +
                      "(SELECT count(*) FROM assignments a WHERE a.student_id = u.user_id) as is_assigned " +
                      "FROM submissions s JOIN users u ON s.student_id = u.user_id";
@@ -93,39 +92,97 @@ public class CoordinatorDashboard extends JFrame {
         }
     }
 
+    // --- HELPER: CHECK FOR CONFLICTS ---
+    private boolean isSlotBooked(String date, String time, String venue) {
+        String sql = "SELECT count(*) FROM sessions WHERE date = ? AND time = ? AND venue = ?";
+        try (Connection conn = DatabaseHandler.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, date);
+            pstmt.setString(2, time);
+            pstmt.setString(3, venue);
+            
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0; // Returns true if count > 0 (Slot is taken)
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     private void openCreateSessionDialog() {
         JTextField dateField = new JTextField("2026-02-15");
+        JTextField timeField = new JTextField("09:00"); 
         JTextField venueField = new JTextField("Room 101");
         String[] types = {"Oral Presentation", "Poster Presentation"};
         JComboBox<String> typeBox = new JComboBox<>(types);
 
         Object[] message = {
             "Date (YYYY-MM-DD):", dateField,
+            "Time (HH:MM):", timeField, 
             "Venue:", venueField,
             "Session Type:", typeBox
         };
 
         int option = JOptionPane.showConfirmDialog(this, message, "Create Session", JOptionPane.OK_CANCEL_OPTION);
+        
         if (option == JOptionPane.OK_OPTION) {
-            saveSession(dateField.getText(), venueField.getText(), (String)typeBox.getSelectedItem());
+            // --- INPUT VALIDATION & CONFLICT CHECK ---
+            String date = dateField.getText().trim();
+            String time = timeField.getText().trim();
+            String venue = venueField.getText().trim();
+            String type = (String) typeBox.getSelectedItem();
+
+            // 1. Check if any field is empty
+            if (date.isEmpty() || time.isEmpty() || venue.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Error: All fields are required!", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return; // Stop here
+            }
+
+            // 2. Check Date Format (Simple YYYY-MM-DD check)
+            if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                JOptionPane.showMessageDialog(this, "Error: Date must be in YYYY-MM-DD format (e.g. 2026-03-15).", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 3. Check Time Format (HH:MM)
+            if (!time.matches("([01]\\d|2[0-3]):[0-5]\\d")) {
+                JOptionPane.showMessageDialog(this, "Error: Time must be in HH:MM format (24-hour) and contain only numbers.\nExample: 09:00 or 14:30", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 4. Check for Conflicts (Same Date + Time + Venue)
+            if (isSlotBooked(date, time, venue)) {
+                JOptionPane.showMessageDialog(this, 
+                    "Conflict Error: The venue '" + venue + "' is already booked at " + time + " on " + date + ".\nPlease choose a different time or venue.", 
+                    "Booking Conflict", 
+                    JOptionPane.ERROR_MESSAGE);
+                return; // Stop here
+            }
+
+            // If we pass all checks, THEN save
+            saveSession(date, time, venue, type);
         }
     }
 
-    private void saveSession(String date, String venue, String type) {
-        String sql = "INSERT INTO sessions(date, venue, session_type) VALUES(?,?,?)";
+    private void saveSession(String date, String time, String venue, String type) {
+        String sql = "INSERT INTO sessions(date, time, venue, session_type) VALUES(?,?,?,?)";
         try (Connection conn = DatabaseHandler.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, date);
-            pstmt.setString(2, venue);
-            pstmt.setString(3, type);
+            pstmt.setString(2, time); 
+            pstmt.setString(3, venue);
+            pstmt.setString(4, type);
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Session Created Successfully!");
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Database Error: " + e.getMessage());
         }
     }
 
-    // --- NEW: THE ASSIGNMENT LOGIC ---
+    // --- THE ASSIGNMENT LOGIC ---
     private void openAssignDialog(String studentId, String studentName) {
         // 1. Get List of Sessions
         ArrayList<String> sessionList = new ArrayList<>();
@@ -136,7 +193,8 @@ public class CoordinatorDashboard extends JFrame {
              ResultSet rs = stmt.executeQuery("SELECT * FROM sessions")) {
             while (rs.next()) {
                 sessionIds.add(rs.getInt("session_id"));
-                sessionList.add(rs.getString("date") + " - " + rs.getString("venue") + " (" + rs.getString("session_type") + ")");
+                sessionList.add(rs.getString("date") + " " + rs.getString("time") + 
+                                " - " + rs.getString("venue") + " (" + rs.getString("session_type") + ")");
             }
         } catch (SQLException e) { e.printStackTrace(); }
 
@@ -193,18 +251,18 @@ public class CoordinatorDashboard extends JFrame {
     }
 
     private void showAllSessions() {
-        // A simple popup to view created sessions
-        JTextArea sessionText = new JTextArea(10, 40);
+        JTextArea sessionText = new JTextArea(10, 50); 
         sessionText.setEditable(false);
         
         try (Connection conn = DatabaseHandler.connect();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT * FROM sessions")) {
-            sessionText.append("ID | Date | Venue | Type\n");
-            sessionText.append("------------------------------------------------\n");
+            sessionText.append("ID | Date       | Time  | Venue      | Type\n");
+            sessionText.append("----------------------------------------------------------\n");
             while (rs.next()) {
                 sessionText.append(rs.getInt("session_id") + " | " + 
                                    rs.getString("date") + " | " + 
+                                   rs.getString("time") + " | " + 
                                    rs.getString("venue") + " | " + 
                                    rs.getString("session_type") + "\n");
             }

@@ -19,14 +19,14 @@ SCENARIO 2: With Database Connection
 -------------------------------------------------------------------
 You CANNOT run it directly. You must link the JAR file in the command.
 
-1. Make sure `sqlite-jdbc-3.46.0.0.jar` is in this folder.
+1. Make sure `sqlite-jdbc-3.51.1.0.jar` is in this folder.
 2. Run these commands:
 
    [COMPILE]
-   javac -cp ".;sqlite-jdbc-3.46.0.0.jar" *.java
+   javac -cp ".;sqlite-jdbc-3.51.1.0.jar" *.java
 
    [RUN]
-   java -cp ".;sqlite-jdbc-3.46.0.0.jar" LoginScreen
+   java -cp ".;sqlite-jdbc-3.51.1.0.jar" LoginScreen
 
 *(Note: If you get "No suitable driver found", you are using the Scenario 1 
 command by mistake. Please use the Scenario 2 command above.)*

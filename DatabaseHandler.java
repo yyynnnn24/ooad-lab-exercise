@@ -16,7 +16,6 @@ public class DatabaseHandler {
 
     public static void createNewTable() {
         // 1. USERS TABLE
-        // Note: I am using 'user_id' as the column name here
         String sqlUsers = "CREATE TABLE IF NOT EXISTS users (\n"
                 + " user_id text PRIMARY KEY,\n"
                 + " username text NOT NULL UNIQUE,\n"
@@ -24,7 +23,7 @@ public class DatabaseHandler {
                 + " role text NOT NULL\n"
                 + ");";
 
-        // 2. SUBMISSIONS TABLE
+        // 2. SUBMISSIONS TABLE (Existing)
         String sqlStudents = "CREATE TABLE IF NOT EXISTS submissions (\n"
                 + " submit_id integer PRIMARY KEY AUTOINCREMENT,\n"
                 + " title text,\n"
@@ -36,11 +35,39 @@ public class DatabaseHandler {
                 + " FOREIGN KEY (student_id) REFERENCES users(user_id)\n"
                 + ");";
 
+        // --- NEW TABLES FOR MEMBER 2 (COORDINATOR) ---
+        
+        // 3. SESSIONS TABLE (Stores Date, Venue, Type)
+        String sqlSessions = "CREATE TABLE IF NOT EXISTS sessions (\n"
+                + " session_id integer PRIMARY KEY AUTOINCREMENT,\n"
+                + " date text,\n"
+                + " time text,\n"
+                + " venue text,\n"
+                + " session_type text\n" // Oral or Poster
+                + ");";
+
+        // 4. ASSIGNMENTS TABLE (Links Session, Student, and Evaluator)
+        String sqlAssignments = "CREATE TABLE IF NOT EXISTS assignments (\n"
+                + " assign_id integer PRIMARY KEY AUTOINCREMENT,\n"
+                + " session_id integer,\n"
+                + " student_id text,\n"
+                + " evaluator_id text,\n"
+                + " FOREIGN KEY (session_id) REFERENCES sessions(session_id),\n"
+                + " FOREIGN KEY (student_id) REFERENCES users(user_id),\n"
+                + " FOREIGN KEY (evaluator_id) REFERENCES users(user_id)\n"
+                + ");";
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
             if (conn != null) {
+                // Execute existing tables
                 stmt.execute(sqlUsers);
                 stmt.execute(sqlStudents);
+                
+                // Execute NEW tables
+                stmt.execute(sqlSessions);
+                stmt.execute(sqlAssignments);
+                
                 System.out.println("Tables checked/created successfully.");
                 
                 insertDefaultUser(conn);
@@ -60,12 +87,16 @@ public class DatabaseHandler {
         // Insert Student (Student)
         String insertStudent = "INSERT INTO users(user_id, username, password, role) VALUES('s001', 'student1', '123', 'Student')";
         
+        // NEW: Insert Evaluator (So you have someone to assign in your dashboard)
+        String insertEvaluator = "INSERT INTO users(user_id, username, password, role) VALUES('e001', 'evaluator1', '123', 'Evaluator')";
+        
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(checkSql)) {
             rs.next();
             if (rs.getInt(1) == 0) { 
                 stmt.executeUpdate(insertAdmin);
                 stmt.executeUpdate(insertStudent);
+                stmt.executeUpdate(insertEvaluator); 
                 System.out.println("Default users inserted.");
             }
         } catch (SQLException e) {

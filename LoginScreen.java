@@ -9,7 +9,7 @@ import javax.swing.*;
 
 public class LoginScreen extends JFrame {
 
-    private JTextField userIDField; // Changed to match your usage
+    private JTextField userIDField; 
     private JPasswordField passwordField;
     private JComboBox<String> roleComboBox;
     private JButton loginButton;
@@ -33,7 +33,7 @@ public class LoginScreen extends JFrame {
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new GridLayout(3, 2, 10, 10)); 
 
-        formPanel.add(new JLabel("User ID:")); // Label
+        formPanel.add(new JLabel("User ID:")); 
         userIDField = new JTextField(15); 
         formPanel.add(userIDField);
 
@@ -73,38 +73,39 @@ public class LoginScreen extends JFrame {
                 }
 
                 // Query: Check if ID, Password, and Role match
-                // We SELECT 'username' because we want to GREET the user later
                 String sql = "SELECT user_id, username, role FROM users WHERE user_id = ? AND password = ? AND role = ?";
 
                 try (Connection conn = DatabaseHandler.connect();
                      PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 
-                    // 1. Fill in the '?' placeholders
                     pstmt.setString(1, userID);
                     pstmt.setString(2, password);
                     pstmt.setString(3, selectedRole); 
                     
-                    // REMOVED INCORRECT LINE: pstmt.setString(4, username); 
-                    // (Variable 'username' didn't exist, and SQL only has 3 '?'s)
-
                     ResultSet rs = pstmt.executeQuery();
 
                     if(rs.next()) {
                         // --- LOGIN SUCCESS ---
-                        
-                        // 2. RETRIEVE data from Database
                         String dbUserId = rs.getString("user_id");
-                        String dbUsername = rs.getString("username"); // Get the actual name from DB
+                        String dbUsername = rs.getString("username"); 
 
                         if("Student".equals(selectedRole)) {
                             JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Redirecting...");
                             LoginScreen.this.dispose(); 
-                            
-                            // 3. PASS retrieved name to the next screen
                             new StudentRegistration(dbUserId, dbUsername);  
-                        } else {
+                        } 
+                        // --- UPDATED PART FOR MEMBER 2 (COORDINATOR) ---
+                        else if ("Staff".equals(selectedRole)) {
+                            JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Opening Coordinator Dashboard...");
+                            LoginScreen.this.dispose();
+                            
+                            // This opens the file you created in the previous step
+                            new CoordinatorDashboard(dbUserId, dbUsername);
+                        } 
+                        // -----------------------------------------------
+                        else {
                             JOptionPane.showMessageDialog(LoginScreen.this, 
-                                "Login Successful as " + selectedRole + ".\n(This dashboard is not ready yet)", 
+                                "Login Successful as " + selectedRole + ".\n(Evaluator dashboard is not ready yet)", 
                                 "Success", JOptionPane.INFORMATION_MESSAGE);
                         }
                     } else {

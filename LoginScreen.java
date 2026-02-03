@@ -9,7 +9,7 @@ import javax.swing.*;
 
 public class LoginScreen extends JFrame {
 
-    private JTextField userIDField; 
+    private JTextField userIDField;
     private JPasswordField passwordField;
     private JComboBox<String> roleComboBox;
     private JButton loginButton;
@@ -18,10 +18,10 @@ public class LoginScreen extends JFrame {
         super("FCI Seminar Management System");
 
         // Initialize DB table on startup to avoid "no such table" errors
-        DatabaseHandler.createNewTable(); 
+        DatabaseHandler.createNewTable();
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(600, 400); 
+        setSize(600, 400);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
@@ -31,10 +31,10 @@ public class LoginScreen extends JFrame {
         add(titleLabel, BorderLayout.NORTH);
 
         JPanel formPanel = new JPanel();
-        formPanel.setLayout(new GridLayout(3, 2, 10, 10)); 
+        formPanel.setLayout(new GridLayout(3, 2, 10, 10));
 
-        formPanel.add(new JLabel("User ID:")); 
-        userIDField = new JTextField(15); 
+        formPanel.add(new JLabel("User ID:"));
+        userIDField = new JTextField(15);
         formPanel.add(userIDField);
 
         formPanel.add(new JLabel("Password:"));
@@ -46,12 +46,12 @@ public class LoginScreen extends JFrame {
         roleComboBox = new JComboBox<>(roles);
         formPanel.add(roleComboBox);
 
-        JPanel wrapperPanel = new JPanel(new GridBagLayout()); 
-        wrapperPanel.add(formPanel); 
+        JPanel wrapperPanel = new JPanel(new GridBagLayout());
+        wrapperPanel.add(formPanel);
         add(wrapperPanel, BorderLayout.CENTER);
 
         loginButton = new JButton("Login");
-        JPanel btnPanel = new JPanel(); 
+        JPanel btnPanel = new JPanel();
         btnPanel.add(loginButton);
         btnPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 20, 10));
         add(btnPanel, BorderLayout.SOUTH);
@@ -64,7 +64,7 @@ public class LoginScreen extends JFrame {
                 String password = new String(passwordField.getPassword());
                 String selectedRole = (String) roleComboBox.getSelectedItem();
 
-                if(userID.isEmpty() || password.isEmpty()) {
+                if (userID.isEmpty() || password.isEmpty()) {
                     JOptionPane.showMessageDialog(LoginScreen.this,
                             "Please enter both User ID and password.",
                             "Input Error",
@@ -77,41 +77,44 @@ public class LoginScreen extends JFrame {
 
                 try (Connection conn = DatabaseHandler.connect();
                      PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                
+
                     pstmt.setString(1, userID);
                     pstmt.setString(2, password);
-                    pstmt.setString(3, selectedRole); 
-                    
+                    pstmt.setString(3, selectedRole);
+
                     ResultSet rs = pstmt.executeQuery();
 
-                    if(rs.next()) {
+                    if (rs.next()) {
                         // --- LOGIN SUCCESS ---
                         String dbUserId = rs.getString("user_id");
-                        String dbUsername = rs.getString("username"); 
+                        String dbUsername = rs.getString("username");
 
-                        if("Student".equals(selectedRole)) {
+                        // Member 3 update: redirect Evaluator to EvaluatorDashboard after login (previous text was outdated)
+                        if ("Student".equals(selectedRole)) {
                             JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Redirecting...");
-                            LoginScreen.this.dispose(); 
-                            new StudentRegistration(dbUserId, dbUsername);  
-                        } 
-                        // --- UPDATED PART FOR MEMBER 2 (COORDINATOR) ---
-                        else if ("Staff".equals(selectedRole)) {
+                            LoginScreen.this.dispose();
+                            new StudentRegistration(dbUserId, dbUsername);
+                        } else if ("Staff".equals(selectedRole)) {
                             JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Opening Coordinator Dashboard...");
                             LoginScreen.this.dispose();
-                            
-                            // This opens the file you created in the previous step
                             new CoordinatorDashboard(dbUserId, dbUsername);
-                        } 
-                        // -----------------------------------------------
-                        else {
-                            JOptionPane.showMessageDialog(LoginScreen.this, 
-                                "Login Successful as " + selectedRole + ".\n(Evaluator dashboard is not ready yet)", 
-                                "Success", JOptionPane.INFORMATION_MESSAGE);
+                        } else if ("Evaluator".equals(selectedRole)) {
+                            JOptionPane.showMessageDialog(LoginScreen.this, "Login Successful! Opening Evaluator Dashboard...");
+                            LoginScreen.this.dispose();
+                            new EvaluatorDashboard(dbUserId, dbUsername);
+                        } else {
+                            // Fallback: generic success message (no misleading text)
+                            JOptionPane.showMessageDialog(LoginScreen.this,
+                                    "Login Successful as " + selectedRole + ".",
+                                    "Success",
+                                    JOptionPane.INFORMATION_MESSAGE);
                         }
+
                     } else {
-                        JOptionPane.showMessageDialog(LoginScreen.this, 
-                            "Invalid User ID, Password, or Role.\n", 
-                            "Login Failed", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(LoginScreen.this,
+                                "Invalid User ID, Password, or Role.\n",
+                                "Login Failed",
+                                JOptionPane.ERROR_MESSAGE);
                     }
 
                 } catch (SQLException ex) {
@@ -119,7 +122,7 @@ public class LoginScreen extends JFrame {
                 }
             }
         });
-        
+
         setVisible(true);
     }
 

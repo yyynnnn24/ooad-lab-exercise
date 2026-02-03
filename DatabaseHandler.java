@@ -57,6 +57,30 @@ public class DatabaseHandler {
                 + " FOREIGN KEY (evaluator_id) REFERENCES users(user_id)\n"
                 + ");";
 
+        // 5. EVALUATIONS TABLE (Member 3)
+        String sqlEvaluations = "CREATE TABLE IF NOT EXISTS evaluations (\n"
+                + " eval_id integer PRIMARY KEY AUTOINCREMENT,\n"
+                + " evaluator_id text,\n"
+                + " submit_id integer,\n"
+                + " clarity integer,\n"
+                + " methodology integer,\n"
+                + " results integer,\n"
+                + " presentation integer,\n"
+                + " total real,\n"
+                + " comments text,\n"
+                + " FOREIGN KEY (evaluator_id) REFERENCES users(user_id),\n"
+                + " FOREIGN KEY (submit_id) REFERENCES submissions(submit_id)\n"
+                + ");";
+
+        // 6. AWARDS TABLE (Member 3)
+        String sqlAwards = "CREATE TABLE IF NOT EXISTS awards (\n"
+                + " award_id integer PRIMARY KEY AUTOINCREMENT,\n"
+                + " award_type text,\n"
+                + " submit_id integer,\n"
+                + " total real,\n"
+                + " FOREIGN KEY (submit_id) REFERENCES submissions(submit_id)\n"
+                + ");";
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
             if (conn != null) {
@@ -67,6 +91,8 @@ public class DatabaseHandler {
                 // Execute NEW tables
                 stmt.execute(sqlSessions);
                 stmt.execute(sqlAssignments);
+                stmt.execute(sqlEvaluations);
+                stmt.execute(sqlAwards);
                 
                 System.out.println("Tables checked/created successfully.");
                 
@@ -76,6 +102,7 @@ public class DatabaseHandler {
             System.out.println("Table Creation Error: " + e.getMessage());
         }
     }
+
 
     private static void insertDefaultUser(Connection conn) {
         // Check if admin exists
@@ -89,6 +116,7 @@ public class DatabaseHandler {
         
         // NEW: Insert Evaluator (So you have someone to assign in your dashboard)
         String insertEvaluator = "INSERT INTO users(user_id, username, password, role) VALUES('e001', 'evaluator1', '123', 'Evaluator')";
+        String insertEvaluator2 = "INSERT INTO users(user_id, username, password, role) VALUES('e002', 'evaluator2', '123', 'Evaluator')";
         
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(checkSql)) {
@@ -97,10 +125,14 @@ public class DatabaseHandler {
                 stmt.executeUpdate(insertCoordinator);
                 stmt.executeUpdate(insertStudent);
                 stmt.executeUpdate(insertEvaluator); 
+                stmt.executeUpdate(insertEvaluator2);
+
                 System.out.println("Default users inserted.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+            
     }
 }

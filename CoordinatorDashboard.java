@@ -40,17 +40,20 @@ public class CoordinatorDashboard extends JFrame {
         JButton assignBtn = new JButton("Assign Selected to Session");
         JButton viewSessionsBtn = new JButton("View All Sessions");
         JButton refreshBtn = new JButton("Refresh List");
+        JButton awardBtn = new JButton("Compute Awards");
 
         btnPanel.add(createSessionBtn);
         btnPanel.add(assignBtn);
         btnPanel.add(viewSessionsBtn);
         btnPanel.add(refreshBtn);
+        btnPanel.add(awardBtn);
         add(btnPanel, BorderLayout.SOUTH);
 
         // --- BUTTON ACTIONS ---
         createSessionBtn.addActionListener(e -> openCreateSessionDialog());
         refreshBtn.addActionListener(e -> loadSubmissions());
-        
+        awardBtn.addActionListener(e -> new AwardDashboard());
+
         assignBtn.addActionListener(e -> {
             int selectedRow = submissionsTable.getSelectedRow();
             if (selectedRow == -1) {
@@ -60,6 +63,7 @@ public class CoordinatorDashboard extends JFrame {
                 String studentName = (String) tableModel.getValueAt(selectedRow, 1);
                 openAssignDialog(studentId, studentName);
             }
+            
         });
 
         viewSessionsBtn.addActionListener(e -> showAllSessions());

@@ -68,7 +68,7 @@ public class EvaluatorDashboard extends JFrame {
         // Define table columns for assigned submissions
         String[] cols = {
             "Submit ID", "Student ID", "Student Name",
-            "Title", "Type", "Status", "My Score", "File Path"
+            "Title", "Research Abstract", "Type", "Status", "My Score", "File Path"
         };
 
         // Initialize table model with non-editable cells
@@ -115,7 +115,7 @@ public class EvaluatorDashboard extends JFrame {
         // SQL query retrieves assigned submissions along with evaluation status and score
         String sql =
     "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
-    "       s.title, s.type, s.filepath, " +
+    "       s.title, s.abstract, s.type, s.filepath, " +
     "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
     "       COALESCE(e.total, '-') AS my_total " +
     "FROM assignments a " +
@@ -139,6 +139,7 @@ public class EvaluatorDashboard extends JFrame {
                 String studentId = rs.getString("student_id");
                 String studentName = rs.getString("student_name");
                 String title = rs.getString("title");
+                String abstractText = rs.getString("abstract");
                 String type = rs.getString("type");
                 String status = rs.getString("status");
                 String myTotal = String.valueOf(rs.getObject("my_total"));
@@ -146,7 +147,7 @@ public class EvaluatorDashboard extends JFrame {
 
                 model.addRow(new Object[]{
                     submitId, studentId, studentName,
-                    title, type, status, myTotal, filepath
+                    title, abstractText, type, status, myTotal, filepath
                 });
             }
 

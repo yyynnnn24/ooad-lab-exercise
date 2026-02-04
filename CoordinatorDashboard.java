@@ -8,18 +8,50 @@ public class CoordinatorDashboard extends JFrame {
     private JTable submissionsTable;
     private DefaultTableModel tableModel;
 
+    // Save staff info for later use
+    private String currentStaffId;
+    private String currentStaffName;
+
     public CoordinatorDashboard(String staffId, String staffName) {
         super("Coordinator Dashboard - " + staffName);
+        this.currentStaffId = staffId;
+        this.currentStaffName = staffName;
+
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(900, 600);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // --- HEADER ---
+        // --- TOP PANEL (Header + User Info) ---
+        JPanel topContainer = new JPanel(new BorderLayout());
+        
+        // 1. Title
         JLabel header = new JLabel("Seminar Session Management", SwingConstants.CENTER);
         header.setFont(new Font("Serif", Font.BOLD, 20));
-        header.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
-        add(header, BorderLayout.NORTH);
+        header.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        topContainer.add(header, BorderLayout.CENTER);
+
+        // 2. User Info & Logout
+        JPanel userPanel = new JPanel(new BorderLayout());
+        JLabel welcomeLabel = new JLabel("  Welcome, " + staffName + " (ID: " + staffId + ")");
+        welcomeLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        
+        JButton logoutBtn = new JButton("Logout");
+        logoutBtn.setBackground(new Color(255, 100, 100));
+        logoutBtn.setForeground(Color.WHITE);
+        logoutBtn.addActionListener(e -> {
+            this.dispose();
+            new LoginScreen(); 
+        });
+
+        userPanel.add(welcomeLabel, BorderLayout.WEST);
+        userPanel.add(logoutBtn, BorderLayout.EAST);
+        userPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        
+        topContainer.add(userPanel, BorderLayout.SOUTH);
+        
+        // Add the whole top container to the frame
+        add(topContainer, BorderLayout.NORTH);
 
         // --- CENTER: LIST OF STUDENT SUBMISSIONS ---
         String[] columnNames = {"Student ID", "Name", "Title", "Type", "Status"};
@@ -31,8 +63,6 @@ public class CoordinatorDashboard extends JFrame {
         };
         submissionsTable = new JTable(tableModel);
         add(new JScrollPane(submissionsTable), BorderLayout.CENTER);
-
-        loadSubmissions(); // Load data on startup
 
         // --- BOTTOM: ACTION BUTTONS ---
         JPanel btnPanel = new JPanel();
@@ -52,7 +82,10 @@ public class CoordinatorDashboard extends JFrame {
         // --- BUTTON ACTIONS ---
         createSessionBtn.addActionListener(e -> openCreateSessionDialog());
         refreshBtn.addActionListener(e -> loadSubmissions());
-        awardBtn.addActionListener(e -> new AwardDashboard());
+        viewSessionsBtn.addActionListener(e -> showAllSessions());
+        
+        // Placeholder for Award Dashboard
+        awardBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Award Calculation Feature Coming Soon!"));
 
         assignBtn.addActionListener(e -> {
             int selectedRow = submissionsTable.getSelectedRow();
@@ -63,16 +96,17 @@ public class CoordinatorDashboard extends JFrame {
                 String studentName = (String) tableModel.getValueAt(selectedRow, 1);
                 openAssignDialog(studentId, studentName);
             }
-            
         });
 
-        viewSessionsBtn.addActionListener(e -> showAllSessions());
+        // Load data on startup
+        loadSubmissions(); 
 
         setVisible(true);
     }
 
     private void loadSubmissions() {
         tableModel.setRowCount(0); 
+        // Note: This query requires the 'assignments' table to exist
         String sql = "SELECT u.user_id, u.username, s.title, s.type, " +
                      "(SELECT count(*) FROM assignments a WHERE a.student_id = u.user_id) as is_assigned " +
                      "FROM submissions s JOIN users u ON s.student_id = u.user_id";
@@ -93,6 +127,7 @@ public class CoordinatorDashboard extends JFrame {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database Error: " + e.getMessage());
         }
     }
 
@@ -142,7 +177,7 @@ public class CoordinatorDashboard extends JFrame {
             // 1. Check if any field is empty
             if (date.isEmpty() || time.isEmpty() || venue.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Error: All fields are required!", "Validation Error", JOptionPane.ERROR_MESSAGE);
-                return; // Stop here
+                return; 
             }
 
             // 2. Check Date Format (Simple YYYY-MM-DD check)
@@ -163,7 +198,7 @@ public class CoordinatorDashboard extends JFrame {
                     "Conflict Error: The venue '" + venue + "' is already booked at " + time + " on " + date + ".\nPlease choose a different time or venue.", 
                     "Booking Conflict", 
                     JOptionPane.ERROR_MESSAGE);
-                return; // Stop here
+                return; 
             }
 
             // If we pass all checks, THEN save

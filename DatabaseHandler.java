@@ -116,7 +116,8 @@ public class DatabaseHandler {
         
         // Insert Coordinator (Coordinator)
         String insertCoordinator = "INSERT INTO users(user_id, username, password, role) VALUES('a001', 'admin', '123', 'Coordinator')";
-        
+        String insertCoordinator2 = "INSERT INTO users(user_id, username, password, role) VALUES('a002', 'admin2', '123', 'Coordinator')";
+
         // Insert Student (Student)
         String insertStudent = "INSERT INTO users(user_id, username, password, role) VALUES('s001', 'student1', '123', 'Student')";
         
@@ -129,6 +130,7 @@ public class DatabaseHandler {
             rs.next();
             if (rs.getInt(1) == 0) { 
                 stmt.executeUpdate(insertCoordinator);
+                stmt.executeUpdate(insertCoordinator2);
                 stmt.executeUpdate(insertStudent);
                 stmt.executeUpdate(insertEvaluator); 
                 stmt.executeUpdate(insertEvaluator2);

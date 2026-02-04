@@ -118,7 +118,7 @@ public class StudentRegistration extends JFrame {
     private JPanel createHistoryPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         
-        String[] columnNames = {"ID", "Title", "Supervisor", "Type", "Status"};
+        String[] columnNames = {"ID", "Title", "Supervisor", "Type", "Status", "Grade", "Comment"};
         
         tableModel = new DefaultTableModel(columnNames, 0); 
         historyTable = new JTable(tableModel);
@@ -172,11 +172,19 @@ public class StudentRegistration extends JFrame {
     }
 
     // Load submission history for the current user
-    private void loadHistoryData() {
+   private void loadHistoryData() {
         // Clear existing data
         tableModel.setRowCount(0);
 
-        String sql = "SELECT submit_id, title, supervisor, type FROM submissions WHERE student_id = ?";
+        // SQL Explanation:
+        // 1. We use "LEFT JOIN evaluations" to get the grade/comments if they exist.
+        // 2. We use a subquery for "is_assigned" to see if a coordinator assigned them.
+        String sql = "SELECT s.submit_id, s.title, s.supervisor, s.type, " +
+                     "e.total, e.comments, " +
+                     "(SELECT count(*) FROM assignments a WHERE a.student_id = s.student_id) as is_assigned " +
+                     "FROM submissions s " +
+                     "LEFT JOIN evaluations e ON s.submit_id = e.submit_id " +
+                     "WHERE s.student_id = ?";
 
         try (Connection conn = DatabaseHandler.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -191,14 +199,38 @@ public class StudentRegistration extends JFrame {
                 row.add(rs.getString("supervisor"));
                 row.add(rs.getString("type"));
                 
-                // Placeholder for status, assuming a 'status' column exists                    
-                row.add("Pending Review"); 
+                // --- 1. GET DATA FROM DB ---
+                int assignedCount = rs.getInt("is_assigned");
+                
+                // Get the grade safely (handle NULL if not graded yet)
+                double score = rs.getDouble("total");
+                boolean isGraded = !rs.wasNull(); // check if the last read column was actually SQL NULL
+                String comments = rs.getString("comments");
+
+                // --- 2. DETERMINE STATUS & DISPLAY VALUES ---
+                String status = "Pending Review";
+                String gradeDisplay = "-";
+                String commentDisplay = "-";
+
+                if (isGraded) {
+                    status = "Graded";
+                    gradeDisplay = String.valueOf(score); // Or String.format("%.1f", score);
+                    commentDisplay = (comments != null) ? comments : "No comments";
+                } else if (assignedCount > 0) {
+                    status = "Assigned to Session";
+                }
+                
+                // --- 3. ADD TO TABLE ROW ---
+                row.add(status);
+                row.add(gradeDisplay);   // Matches column "Grade"
+                row.add(commentDisplay); // Matches column "Comment"
                 
                 tableModel.addRow(row);
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error loading history: " + e.getMessage());
         }
     }
 }

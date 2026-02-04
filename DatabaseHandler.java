@@ -94,6 +94,12 @@ public class DatabaseHandler {
                 stmt.execute(sqlEvaluations);
                 stmt.execute(sqlAwards);
                 
+                // Ensure each evaluator can only be assigned once per student per session
+                stmt.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_assign_multi_eval " +
+                    "ON assignments(session_id, student_id, evaluator_id)"
+                );
+
                 System.out.println("Tables checked/created successfully.");
                 
                 insertDefaultUser(conn);

@@ -114,16 +114,18 @@ public class EvaluatorDashboard extends JFrame {
 
         // SQL query retrieves assigned submissions along with evaluation status and score
         String sql =
-            "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
-            "       s.title, s.type, s.filepath, " +
-            "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
-            "       COALESCE(e.total, '-') AS my_total " +
-            "FROM assignments a " +
-            "JOIN users u ON a.student_id = u.user_id " +
-            "JOIN submissions s ON s.student_id = u.user_id " +
-            "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
-            "WHERE a.evaluator_id = ? " +
-            "ORDER BY s.submit_id DESC;";
+    "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
+    "       s.title, s.type, s.filepath, " +
+    "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
+    "       COALESCE(e.total, '-') AS my_total " +
+    "FROM assignments a " +
+    "JOIN sessions sess ON sess.session_id = a.session_id " +
+    "JOIN users u ON a.student_id = u.user_id " +
+    "JOIN submissions s ON s.student_id = u.user_id AND s.type = sess.session_type " +
+    "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
+    "WHERE a.evaluator_id = ? " +
+    "ORDER BY s.submit_id DESC;";
+
 
         try (Connection conn = DatabaseHandler.connect();
              PreparedStatement ps = conn.prepareStatement(sql)) {

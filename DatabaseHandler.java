@@ -120,6 +120,8 @@ public class DatabaseHandler {
 
         // Insert Student (Student)
         String insertStudent = "INSERT INTO users(user_id, username, password, role) VALUES('s001', 'student1', '123', 'Student')";
+        String insertStudent2 ="INSERT INTO users(user_id, username, password, role) VALUES('s002', 'student2', '123', 'Student')";
+
         
         // NEW: Insert Evaluator (So you have someone to assign in your dashboard)
         String insertEvaluator = "INSERT INTO users(user_id, username, password, role) VALUES('e001', 'evaluator1', '123', 'Evaluator')";
@@ -132,6 +134,7 @@ public class DatabaseHandler {
                 stmt.executeUpdate(insertCoordinator);
                 stmt.executeUpdate(insertCoordinator2);
                 stmt.executeUpdate(insertStudent);
+                stmt.executeUpdate(insertStudent2);
                 stmt.executeUpdate(insertEvaluator); 
                 stmt.executeUpdate(insertEvaluator2);
 

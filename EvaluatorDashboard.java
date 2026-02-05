@@ -121,7 +121,13 @@ public class EvaluatorDashboard extends JFrame {
     "FROM assignments a " +
     "JOIN sessions sess ON sess.session_id = a.session_id " +
     "JOIN users u ON a.student_id = u.user_id " +
-    "JOIN submissions s ON s.student_id = u.user_id AND s.type = sess.session_type " +
+       // Only pick the latest submission for that student + session type
+    "JOIN submissions s ON s.submit_id = ( " +
+    "    SELECT MAX(s2.submit_id) " +
+    "    FROM submissions s2 " +
+    "    WHERE s2.student_id = u.user_id " +
+    "      AND s2.type = sess.session_type " +
+    ") "  +
     "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
     "WHERE a.evaluator_id = ? " +
     "ORDER BY s.submit_id DESC;";

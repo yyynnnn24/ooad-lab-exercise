@@ -87,8 +87,10 @@ public class CoordinatorDashboard extends JFrame {
         refreshBtn.addActionListener(e -> loadSubmissions());
         viewSessionsBtn.addActionListener(e -> showAllSessions());
         
-        // Placeholder for Award Dashboard
-        awardBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Award Calculation Feature Coming Soon!"));
+        // Open Award Dashboard
+        awardBtn.addActionListener(e -> new AwardDashboard());
+
+        
 
         assignBtn.addActionListener(e -> {
             int selectedRow = submissionsTable.getSelectedRow();

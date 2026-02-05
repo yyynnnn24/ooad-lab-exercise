@@ -71,12 +71,15 @@ public class CoordinatorDashboard extends JFrame {
         JButton viewSessionsBtn = new JButton("View All Sessions");
         JButton refreshBtn = new JButton("Refresh List");
         JButton awardBtn = new JButton("Compute Awards");
+        JButton reportBtn = new JButton("Generate Reports");
+
 
         btnPanel.add(createSessionBtn);
         btnPanel.add(assignBtn);
         btnPanel.add(viewSessionsBtn);
         btnPanel.add(refreshBtn);
         btnPanel.add(awardBtn);
+        btnPanel.add(reportBtn);
         add(btnPanel, BorderLayout.SOUTH);
 
         // --- BUTTON ACTIONS ---
@@ -97,6 +100,8 @@ public class CoordinatorDashboard extends JFrame {
                 openAssignDialog(studentId, studentName);
             }
         });
+
+        reportBtn.addActionListener(e -> new ReportsDashboard().setVisible(true));
 
         // Load data on startup
         loadSubmissions(); 

@@ -119,13 +119,13 @@ public class DatabaseHandler {
         String insertCoordinator2 = "INSERT INTO users(user_id, username, password, role) VALUES('a002', 'admin2', '123', 'Coordinator')";
 
         // Insert Student (Student)
-        String insertStudent = "INSERT INTO users(user_id, username, password, role) VALUES('s001', 'student1', '123', 'Student')";
-        String insertStudent2 ="INSERT INTO users(user_id, username, password, role) VALUES('s002', 'student2', '123', 'Student')";
+        String insertStudent = "INSERT INTO users(user_id, username, password, role) VALUES('s001', 'John', '123', 'Student')";
+        String insertStudent2 ="INSERT INTO users(user_id, username, password, role) VALUES('s002', 'Jane', '123', 'Student')";
 
         
         // NEW: Insert Evaluator (So you have someone to assign in your dashboard)
-        String insertEvaluator = "INSERT INTO users(user_id, username, password, role) VALUES('e001', 'evaluator1', '123', 'Evaluator')";
-        String insertEvaluator2 = "INSERT INTO users(user_id, username, password, role) VALUES('e002', 'evaluator2', '123', 'Evaluator')";
+        String insertEvaluator = "INSERT INTO users(user_id, username, password, role) VALUES('e001', 'Kelvin', '123', 'Evaluator')";
+        String insertEvaluator2 = "INSERT INTO users(user_id, username, password, role) VALUES('e002', 'Anna', '123', 'Evaluator')";
         
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(checkSql)) {

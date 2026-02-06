@@ -82,7 +82,7 @@ public class EvaluatorDashboard extends JFrame {
         // Create table using the model
         assignedTable = new JTable(model);
         add(new JScrollPane(assignedTable), BorderLayout.CENTER);
-
+        
         // Panel containing action buttons
         JPanel btnPanel = new JPanel();
         JButton refreshBtn = new JButton("Refresh");

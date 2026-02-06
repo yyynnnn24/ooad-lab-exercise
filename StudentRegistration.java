@@ -27,13 +27,12 @@ public class StudentRegistration extends JFrame {
 
         setTitle("Student Dashboard - " + username);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(800, 600); 
+        setSize(900, 650); 
         setLocationRelativeTo(null);
         
         JTabbedPane tabbedPane = new JTabbedPane();
         
         tabbedPane.addTab("New Registration", createSubmissionPanel());
-        
         tabbedPane.addTab("My History & Status", createHistoryPanel());
         
         JPanel topPanel = new JPanel(new BorderLayout());
@@ -52,44 +51,53 @@ public class StudentRegistration extends JFrame {
         topPanel.add(logoutBtn, BorderLayout.EAST);
         topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        
         add(topPanel, BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
 
-     
         loadHistoryData();
-
         setVisible(true);
     }
 
     private JPanel createSubmissionPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel mainPanel = new JPanel(new BorderLayout());
         
-        JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 20));
-        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
+        // Inner panel for the actual form container
+        JPanel formPanel = new JPanel(new BorderLayout());
+        
+        // ADDING THE BOX MARGIN: TitledBorder creates the neat frame
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createEmptyBorder(20, 40, 20, 40), 
+            BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.GRAY), " Registration Details ")
+        ));
+        
+        // Padding inside the box - this holds the actual input components
+        JPanel paddingPanel = new JPanel(new GridLayout(5, 2, 10, 20));
+        paddingPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        formPanel.add(new JLabel("Research Title:"));
+        paddingPanel.add(new JLabel("Research Title:"));
         researchTitle = new JTextField();
-        formPanel.add(researchTitle);
+        paddingPanel.add(researchTitle);
 
-        formPanel.add(new JLabel("Research Abstract:"));
+        paddingPanel.add(new JLabel("Research Abstract:"));
         researchAbstract = new JTextArea(5, 20);
         researchAbstract.setLineWrap(true);
-        formPanel.add(new JScrollPane(researchAbstract));
+        researchAbstract.setWrapStyleWord(true);
+        paddingPanel.add(new JScrollPane(researchAbstract));
 
-        formPanel.add(new JLabel("Supervisor Name:"));
+        paddingPanel.add(new JLabel("Supervisor Name:"));
         supervisorName = new JTextField();
-        formPanel.add(supervisorName);
+        paddingPanel.add(supervisorName);
 
-        formPanel.add(new JLabel("Type:"));
+        paddingPanel.add(new JLabel("Type:"));
         String[] types = {"Oral Presentation", "Poster Presentation"};
         comboType = new JComboBox<>(types);
-        formPanel.add(comboType);
+        paddingPanel.add(comboType);
 
-        formPanel.add(new JLabel("Upload File:"));
+        paddingPanel.add(new JLabel("Upload File:"));
         JPanel uploadPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         filePath = new JLabel("No file chosen  ");
         JButton uploadBtn = new JButton("Browse...");
+        
         uploadBtn.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
             if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
@@ -99,7 +107,10 @@ public class StudentRegistration extends JFrame {
         });
         uploadPanel.add(uploadBtn);
         uploadPanel.add(filePath);
-        formPanel.add(uploadPanel);
+        paddingPanel.add(uploadPanel);
+
+        // CRITICAL FIX: Add the components to formPanel so they appear inside the box
+        formPanel.add(paddingPanel, BorderLayout.CENTER); 
 
         JButton submitBtn = new JButton("Submit Registration");
         submitBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -109,21 +120,71 @@ public class StudentRegistration extends JFrame {
         btnWrapper.add(submitBtn);
         btnWrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
 
-        panel.add(formPanel, BorderLayout.CENTER);
-        panel.add(btnWrapper, BorderLayout.SOUTH);
+        mainPanel.add(formPanel, BorderLayout.CENTER);
+        mainPanel.add(btnWrapper, BorderLayout.SOUTH);
         
-        return panel;
+        return mainPanel;
     }
 
     private JPanel createHistoryPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         
-        String[] columnNames = {"ID", "Title", "Supervisor", "Type", "Status", "Grade", "Comment"};
-        
-        tableModel = new DefaultTableModel(columnNames, 0); 
+        String[] columnNames = {"ID", "Title", "Date", "Venue", "Evaluator", "Status", "Grade", "Comment", "Abstract"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        }; 
         historyTable = new JTable(tableModel);
         
+        historyTable.getColumnModel().getColumn(8).setMinWidth(0);
+        historyTable.getColumnModel().getColumn(8).setMaxWidth(0);
+        historyTable.getColumnModel().getColumn(8).setPreferredWidth(0);
+        historyTable.getColumnModel().getColumn(0).setPreferredWidth(50);
+
+        historyTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                if (evt.getClickCount() == 2) { 
+                    int row = historyTable.getSelectedRow();
+                    if (row != -1) {
+                        String id = String.valueOf(tableModel.getValueAt(row, 0));
+                        String title = String.valueOf(tableModel.getValueAt(row, 1));
+                        String date = String.valueOf(tableModel.getValueAt(row, 2));
+                        String venue = String.valueOf(tableModel.getValueAt(row, 3));
+                        String eval = String.valueOf(tableModel.getValueAt(row, 4));
+                        String status = String.valueOf(tableModel.getValueAt(row, 5));
+                        String grade = String.valueOf(tableModel.getValueAt(row, 6));
+                        String comment = String.valueOf(tableModel.getValueAt(row, 7));
+                        String fullAbstract = String.valueOf(tableModel.getValueAt(row, 8));
+
+                        JTextArea textArea = new JTextArea(
+                            "Submission ID: " + id + "\n" +
+                            "Title: " + title + "\n\n" +
+                            "--- Research Abstract ---\n" + fullAbstract + "\n\n" +
+                            "--- Schedule ---\n" +
+                            "Date: " + date + "\n" +
+                            "Venue: " + venue + "\n" +
+                            "Evaluator: " + eval + "\n\n" +
+                            "--- Result ---\n" +
+                            "Status: " + status + "\n" +
+                            "Grade: " + grade + "\n" +
+                            "Comment: " + comment
+                        );
+                        textArea.setLineWrap(true);
+                        textArea.setWrapStyleWord(true);
+                        textArea.setEditable(false);
+                        textArea.setBackground(new Color(245, 245, 245));
+                        
+                        JScrollPane scrollPane = new JScrollPane(textArea);
+                        scrollPane.setPreferredSize(new Dimension(500, 450));
+                        
+                        JOptionPane.showMessageDialog(StudentRegistration.this, scrollPane, "Full Submission Details", JOptionPane.INFORMATION_MESSAGE);
+                    }
+                }
+            }
+        });
+
         JScrollPane scrollPane = new JScrollPane(historyTable);
+        panel.add(new JLabel("  Double-click a row to view full abstract and schedule details", SwingConstants.LEFT), BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
         
         JButton refreshBtn = new JButton("Refresh Status");
@@ -132,7 +193,7 @@ public class StudentRegistration extends JFrame {
 
         return panel;
     }
-
+    
     private void submitData() {
         String title = researchTitle.getText();
         String abs = researchAbstract.getText();
@@ -163,7 +224,7 @@ public class StudentRegistration extends JFrame {
             researchAbstract.setText("");
             supervisorName.setText("");
             filePath.setText("No file chosen");
-            loadHistoryData(); // Refresh history after submission
+            loadHistoryData(); 
 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -171,18 +232,16 @@ public class StudentRegistration extends JFrame {
         }
     }
 
-    // Load submission history for the current user
    private void loadHistoryData() {
-        // Clear existing data
         tableModel.setRowCount(0);
 
-        // SQL Explanation:
-        // 1. We use "LEFT JOIN evaluations" to get the grade/comments if they exist.
-        // 2. We use a subquery for "is_assigned" to see if a coordinator assigned them.
-        String sql = "SELECT s.submit_id, s.title, s.supervisor, s.type, " +
+        String sql = "SELECT s.submit_id, s.title, s.abstract, sess.date, sess.venue, u_eval.username as eval_name, " +
                      "e.total, e.comments, " +
-                     "(SELECT count(*) FROM assignments a WHERE a.student_id = s.student_id) as is_assigned " +
+                     "(SELECT count(*) FROM assignments a_check WHERE a_check.student_id = s.student_id) as is_assigned " +
                      "FROM submissions s " +
+                     "LEFT JOIN assignments a ON s.student_id = a.student_id " +
+                     "LEFT JOIN sessions sess ON a.session_id = sess.session_id " +
+                     "LEFT JOIN users u_eval ON a.evaluator_id = u_eval.user_id " +
                      "LEFT JOIN evaluations e ON s.submit_id = e.submit_id " +
                      "WHERE s.student_id = ?";
 
@@ -194,37 +253,35 @@ public class StudentRegistration extends JFrame {
 
             while (rs.next()) {
                 Vector<String> row = new Vector<>();
+                
                 row.add(rs.getString("submit_id"));
                 row.add(rs.getString("title"));
-                row.add(rs.getString("supervisor"));
-                row.add(rs.getString("type"));
-                
-                // --- 1. GET DATA FROM DB ---
+                row.add(rs.getString("date") != null ? rs.getString("date") : "TBA");
+                row.add(rs.getString("venue") != null ? rs.getString("venue") : "TBA");
+                row.add(rs.getString("eval_name") != null ? rs.getString("eval_name") : "TBA");
+
                 int assignedCount = rs.getInt("is_assigned");
-                
-                // Get the grade safely (handle NULL if not graded yet)
                 double score = rs.getDouble("total");
-                boolean isGraded = !rs.wasNull(); // check if the last read column was actually SQL NULL
+                boolean isGraded = !rs.wasNull();
                 String comments = rs.getString("comments");
 
-                // --- 2. DETERMINE STATUS & DISPLAY VALUES ---
                 String status = "Pending Review";
                 String gradeDisplay = "-";
                 String commentDisplay = "-";
 
                 if (isGraded) {
                     status = "Graded";
-                    gradeDisplay = String.valueOf(score); // Or String.format("%.1f", score);
+                    gradeDisplay = String.valueOf(score);
                     commentDisplay = (comments != null) ? comments : "No comments";
                 } else if (assignedCount > 0) {
-                    status = "Assigned to Session";
+                    status = "Assigned";
                 }
                 
-                // --- 3. ADD TO TABLE ROW ---
                 row.add(status);
-                row.add(gradeDisplay);   // Matches column "Grade"
-                row.add(commentDisplay); // Matches column "Comment"
-                
+                row.add(gradeDisplay);
+                row.add(commentDisplay);
+                row.add(rs.getString("abstract"));
+
                 tableModel.addRow(row);
             }
 

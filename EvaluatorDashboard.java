@@ -1,140 +1,126 @@
 import java.awt.*;
+import java.awt.event.*;
 import java.io.File;
 import java.sql.*;
 import javax.swing.*;
-import javax.swing.event.*;    // Used for displaying tabular data in JTable
-import javax.swing.table.DefaultTableModel;                   // For column resize listener
+import javax.swing.table.DefaultTableModel;
 
 // EvaluatorDashboard allows evaluators to view assigned submissions,
 // open uploaded presentation files, and perform evaluations.
 public class EvaluatorDashboard extends JFrame {
 
-    // Stores the currently logged-in evaluator's ID
     private String evaluatorId;
-
-    // Stores the evaluator's display name
     private String evaluatorName;
 
-    // JTable used to display assigned submissions
     private JTable assignedTable;
-
-    // Table model backing the JTable
     private DefaultTableModel model;
 
-    // Constructor initializes the evaluator dashboard UI
     public EvaluatorDashboard(String evaluatorId, String evaluatorName) {
         super("Evaluator Dashboard - " + evaluatorName);
         this.evaluatorId = evaluatorId;
         this.evaluatorName = evaluatorName;
 
-        // Basic window settings
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(950, 600);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // Header label for the dashboard title
         JLabel header = new JLabel("My Assigned Presentations", SwingConstants.CENTER);
         header.setFont(new Font("Serif", Font.BOLD, 20));
         header.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
 
-        // Top panel containing evaluator info and logout button
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Label showing evaluator identity
         JLabel infoLabel = new JLabel("Evaluator: " + evaluatorName + " (" + evaluatorId + ")");
         infoLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
 
-        // Logout button to return to login screen
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setBackground(new Color(220, 80, 80));
         logoutBtn.setForeground(Color.WHITE);
         logoutBtn.addActionListener(e -> {
-            this.dispose();          // Close evaluator dashboard
-            new LoginScreen();       // Return to login screen
+            this.dispose();
+            new LoginScreen();
         });
 
-        // Place evaluator info and logout button on the top panel
         topPanel.add(infoLabel, BorderLayout.WEST);
         topPanel.add(logoutBtn, BorderLayout.EAST);
 
-        // Combine top panel and header into a single north wrapper
         JPanel northWrapper = new JPanel(new BorderLayout());
         northWrapper.add(topPanel, BorderLayout.NORTH);
         northWrapper.add(header, BorderLayout.CENTER);
-
         add(northWrapper, BorderLayout.NORTH);
 
-        // Define table columns for assigned submissions
+        //  Clean table: only key info + clickable "ⓘ Info" column
         String[] cols = {
-            "Submit ID", "Student ID", "Student Name",
-            "Title", "Research Abstract", "Type", "Status", "My Score", "File Path"
+                "Submit ID", "Student ID", "Student Name",
+                "Type", "Status", "My Score",
+                "Details"
         };
 
-        // Initialize table model with non-editable cells
         model = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Prevent editing directly in the table
+                // Only the info button column is editable (to receive click events).
+                return column == findColumn("Details");
             }
         };
 
-        // Create table using the model
         assignedTable = new JTable(model);
+        assignedTable.setRowHeight(28);
         add(new JScrollPane(assignedTable), BorderLayout.CENTER);
 
-        // ✅ NEW: enable wrap for Title + Abstract (no logic change)
-        enableWrappedColumns();
+        // Setup "ⓘ Info" button column (no image, blue link style)
+        setupInfoButtonColumn();
 
-        // Panel containing action buttons
         JPanel btnPanel = new JPanel();
         JButton refreshBtn = new JButton("Refresh");
         JButton evaluateBtn = new JButton("Evaluate Selected");
-        JButton viewFileBtn = new JButton("View File");
 
-        btnPanel.add(viewFileBtn);
         btnPanel.add(evaluateBtn);
         btnPanel.add(refreshBtn);
         add(btnPanel, BorderLayout.SOUTH);
 
-        // Reload assigned submissions from database
         refreshBtn.addActionListener(e -> loadAssigned());
-
-        // Open uploaded presentation file
-        viewFileBtn.addActionListener(e -> openSelectedFile());
-
-        // Open evaluation dialog for selected submission
         evaluateBtn.addActionListener(e -> openEvaluateDialog());
 
-        // Load data when dashboard is first displayed
+        // Optional: double click row to open details
+        assignedTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && assignedTable.getSelectedRow() != -1) {
+                    int viewRow = assignedTable.getSelectedRow();
+                    int row = assignedTable.convertRowIndexToModel(viewRow);
+                    showDetailsDialogForRow(row);
+                }
+            }
+        });
+
         loadAssigned();
         setVisible(true);
     }
 
     // Loads all submissions assigned to the current evaluator
     private void loadAssigned() {
-        model.setRowCount(0); // Clear existing table rows
+        model.setRowCount(0);
 
-        // SQL query retrieves assigned submissions along with evaluation status and score
         String sql =
-            "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
-            "       s.title, s.abstract, s.type, s.filepath, " +
-            "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
-            "       COALESCE(e.total, '-') AS my_total " +
-            "FROM assignments a " +
-            "JOIN sessions sess ON sess.session_id = a.session_id " +
-            "JOIN users u ON a.student_id = u.user_id " +
-            // Only pick the latest submission for that student + session type
-            "JOIN submissions s ON s.submit_id = ( " +
-            "    SELECT MAX(s2.submit_id) " +
-            "    FROM submissions s2 " +
-            "    WHERE s2.student_id = u.user_id " +
-            "      AND s2.type = sess.session_type " +
-            ") "  +
-            "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
-            "WHERE a.evaluator_id = ? " +
-            "ORDER BY s.submit_id DESC;";
+                "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
+                "       s.title, s.abstract, s.type, s.filepath, " +
+                "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
+                "       COALESCE(e.total, '-') AS my_total " +
+                "FROM assignments a " +
+                "JOIN sessions sess ON sess.session_id = a.session_id " +
+                "JOIN users u ON a.student_id = u.user_id " +
+                "JOIN submissions s ON s.submit_id = ( " +
+                "    SELECT MAX(s2.submit_id) " +
+                "    FROM submissions s2 " +
+                "    WHERE s2.student_id = u.user_id " +
+                "      AND s2.type = sess.session_type " +
+                ") " +
+                "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
+                "WHERE a.evaluator_id = ? " +
+                "ORDER BY s.submit_id DESC;";
 
         try (Connection conn = DatabaseHandler.connect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -142,26 +128,20 @@ public class EvaluatorDashboard extends JFrame {
             ps.setString(1, evaluatorId);
             ResultSet rs = ps.executeQuery();
 
-            // Populate table with query results
             while (rs.next()) {
                 int submitId = rs.getInt("submit_id");
                 String studentId = rs.getString("student_id");
                 String studentName = rs.getString("student_name");
-                String title = rs.getString("title");
-                String abstractText = rs.getString("abstract");
                 String type = rs.getString("type");
                 String status = rs.getString("status");
                 String myTotal = String.valueOf(rs.getObject("my_total"));
-                String filepath = rs.getString("filepath");
 
                 model.addRow(new Object[]{
-                    submitId, studentId, studentName,
-                    title, abstractText, type, status, myTotal, filepath
+                        submitId, studentId, studentName,
+                        type, status, myTotal,
+                        "ⓘ Info"
                 });
             }
-
-            // ✅ NEW: after loading rows, recompute row heights for wrapping
-            updateRowHeights();
 
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
@@ -170,46 +150,53 @@ public class EvaluatorDashboard extends JFrame {
 
     // Opens the evaluation dialog for the selected submission
     private void openEvaluateDialog() {
-        int row = assignedTable.getSelectedRow();
-        if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a student first.");
-            return;
-        }
-
-        int submitId = (int) model.getValueAt(row, 0);
-        String studentName = (String) model.getValueAt(row, 2);
-        String title = (String) model.getValueAt(row, 3);
-
-        // Launch evaluation dialog
-        EvaluationDialog dialog =
-                new EvaluationDialog(this, evaluatorId, submitId, studentName, title);
-        dialog.setVisible(true);
-
-        // Refresh table after evaluation is completed
-        loadAssigned();
-    }
-
-    // Opens the uploaded poster/image/PDF file using the system default application
-    private void openSelectedFile() {
         int viewRow = assignedTable.getSelectedRow();
         if (viewRow == -1) {
             JOptionPane.showMessageDialog(this, "Please select a submission first.");
             return;
         }
-
-        // Convert table view index to model index
         int row = assignedTable.convertRowIndexToModel(viewRow);
 
-        // Retrieve file path column safely by column name
-        int fpCol = model.findColumn("File Path");
-        if (fpCol == -1) {
-            JOptionPane.showMessageDialog(this, "File Path column not found.");
+        int submitId = Integer.parseInt(String.valueOf(model.getValueAt(row, model.findColumn("Submit ID"))));
+        String studentName = String.valueOf(model.getValueAt(row, model.findColumn("Student Name")));
+
+        // Fetch full title from DB
+        String title = "";
+        try (Connection conn = DatabaseHandler.connect();
+             PreparedStatement ps = conn.prepareStatement("SELECT title FROM submissions WHERE submit_id = ?")) {
+            ps.setInt(1, submitId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) title = rs.getString("title");
+        } catch (SQLException ex) {
+            title = "(Unknown Title)";
+        }
+
+        EvaluationDialog dialog =
+                new EvaluationDialog(this, evaluatorId, submitId, studentName, title);
+        dialog.setVisible(true);
+
+        loadAssigned();
+    }
+
+    // Open file by submitId (used from details dialog)
+    private void openFileBySubmitId(int submitId) {
+        String filepath = null;
+
+        try (Connection conn = DatabaseHandler.connect();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT filepath FROM submissions WHERE submit_id = ?")) {
+
+            ps.setInt(1, submitId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) filepath = rs.getString("filepath");
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
             return;
         }
 
-        String filepath = (String) model.getValueAt(row, fpCol);
         if (filepath == null || filepath.trim().isEmpty() ||
-            "null".equalsIgnoreCase(filepath.trim())) {
+                "null".equalsIgnoreCase(filepath.trim())) {
             JOptionPane.showMessageDialog(this, "No file uploaded for this submission.");
             return;
         }
@@ -220,85 +207,108 @@ public class EvaluatorDashboard extends JFrame {
                 JOptionPane.showMessageDialog(this, "File not found:\n" + filepath);
                 return;
             }
-
-            // Open file with OS default viewer
             Desktop.getDesktop().open(f);
-
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Cannot open file: " + ex.getMessage());
         }
     }
 
-    // Allows external components to refresh the evaluator dashboard
+    // Details dialog: NO file path text; View File button at bottom-right; no Close button
+    private void showDetailsDialogForRow(int row) {
+        if (row < 0) return;
+
+        int submitId = Integer.parseInt(String.valueOf(model.getValueAt(row, model.findColumn("Submit ID"))));
+        String studentId = String.valueOf(model.getValueAt(row, model.findColumn("Student ID")));
+        String studentName = String.valueOf(model.getValueAt(row, model.findColumn("Student Name")));
+        String type = String.valueOf(model.getValueAt(row, model.findColumn("Type")));
+        String status = String.valueOf(model.getValueAt(row, model.findColumn("Status")));
+        String myScore = String.valueOf(model.getValueAt(row, model.findColumn("My Score")));
+
+        String fullTitle = "";
+        String fullAbstract = "";
+
+        try (Connection conn = DatabaseHandler.connect();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT title, abstract FROM submissions WHERE submit_id = ?")) {
+
+            ps.setInt(1, submitId);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                fullTitle = rs.getString("title");
+                fullAbstract = rs.getString("abstract");
+            }
+
+        } catch (SQLException ex) {
+            fullAbstract = "(Cannot load details: " + ex.getMessage() + ")";
+        }
+
+        JTextArea area = new JTextArea();
+        area.setEditable(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+
+        area.setText(
+                "Submit ID: " + submitId + "\n" +
+                "Student: " + studentName + " (" + studentId + ")\n" +
+                "Type: " + type + "\n" +
+                "Status: " + status + "\n" +
+                "My Score: " + myScore + "\n\n" +
+                "Title:\n" + (fullTitle == null ? "" : fullTitle) + "\n\n" +
+                "Research Abstract:\n" + (fullAbstract == null ? "" : fullAbstract)
+        );
+
+        JScrollPane pane = new JScrollPane(area);
+        pane.setPreferredSize(new Dimension(720, 420));
+
+        JButton viewFileBtn = new JButton("View File");
+        viewFileBtn.addActionListener(e -> openFileBySubmitId(submitId));
+
+        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        bottomBar.add(viewFileBtn);
+
+        JDialog dialog = new JDialog(this, "Submission Details", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.add(pane, BorderLayout.CENTER);
+        dialog.add(bottomBar, BorderLayout.SOUTH);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     public void refresh() {
         loadAssigned();
     }
 
     // ============================================================
-    // ✅ NEW PART ONLY: wrap Title + Research Abstract automatically
+    // "ⓘ Info" button column (no image, single-click, blue link style)
     // ============================================================
 
-    // Enable auto wrap + auto row height for Title & Abstract columns
-    private void enableWrappedColumns() {
-        // Wrap renderer for long text
-        WrapTextCellRenderer wrapRenderer = new WrapTextCellRenderer();
+    private void setupInfoButtonColumn() {
+        int infoCol = model.findColumn("Details");
+        if (infoCol == -1) return;
 
-        // Apply to Title and Research Abstract columns (by column name)
-        setWrapRendererByName("Title", wrapRenderer);
-        setWrapRendererByName("Research Abstract", wrapRenderer);
-        setWrapRendererByName("File Path", wrapRenderer); 
+        assignedTable.getColumnModel().getColumn(infoCol)
+                .setCellRenderer(new InfoButtonRenderer());
 
+        assignedTable.getColumnModel().getColumn(infoCol)
+                .setCellEditor(new InfoButtonEditor(new JCheckBox()));
 
-        // Recalculate row height when column width changes (window resize / user resize)
-        assignedTable.getColumnModel().addColumnModelListener(new TableColumnModelListener() {
-            public void columnAdded(TableColumnModelEvent e) {}
-            public void columnRemoved(TableColumnModelEvent e) {}
-            public void columnMoved(TableColumnModelEvent e) {}
-            public void columnSelectionChanged(ListSelectionEvent e) {}
-
-            public void columnMarginChanged(ChangeEvent e) {
-                updateRowHeights();
-            }
-        });
+        assignedTable.getColumnModel().getColumn(infoCol).setMaxWidth(90);
+        assignedTable.getColumnModel().getColumn(infoCol).setMinWidth(90);
     }
 
-    private void setWrapRendererByName(String colName, WrapTextCellRenderer renderer) {
-        int col = model.findColumn(colName);
-        if (col >= 0) {
-            assignedTable.getColumnModel().getColumn(col).setCellRenderer(renderer);
-        }
-    }
+    static class InfoButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
+        public InfoButtonRenderer() {
+            setText("ⓘ Info");
+            setFocusPainted(false);
 
-    // Recompute each row height based on wrapped content
-    private void updateRowHeights() {
-        int titleCol = model.findColumn("Title");
-        int absCol = model.findColumn("Research Abstract");
+            // Blue link style
+            setForeground(new Color(30, 90, 200));
+            setBorderPainted(false);
+            setContentAreaFilled(false);
 
-        for (int row = 0; row < assignedTable.getRowCount(); row++) {
-            int maxHeight = assignedTable.getRowHeight(); // default
-
-            if (titleCol >= 0) maxHeight = Math.max(maxHeight, getPreferredRowHeight(row, titleCol));
-            if (absCol >= 0)   maxHeight = Math.max(maxHeight, getPreferredRowHeight(row, absCol));
-
-            assignedTable.setRowHeight(row, maxHeight);
-        }
-    }
-
-    private int getPreferredRowHeight(int row, int col) {
-        Component comp = assignedTable.prepareRenderer(
-                assignedTable.getCellRenderer(row, col), row, col);
-
-        int prefH = comp.getPreferredSize().height;
-        return prefH + 6; // padding
-    }
-
-    // Renderer that wraps text in JTable cells
-    static class WrapTextCellRenderer extends JTextArea implements javax.swing.table.TableCellRenderer {
-        public WrapTextCellRenderer() {
-            setLineWrap(true);
-            setWrapStyleWord(true);
-            setOpaque(true);
-            setEditable(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         }
 
         @Override
@@ -306,22 +316,44 @@ public class EvaluatorDashboard extends JFrame {
                 JTable table, Object value, boolean isSelected, boolean hasFocus,
                 int row, int column) {
 
-            setText(value == null ? "" : value.toString());
-            setFont(table.getFont());
-
-            if (isSelected) {
-                setForeground(table.getSelectionForeground());
-                setBackground(table.getSelectionBackground());
-            } else {
-                setForeground(table.getForeground());
-                setBackground(table.getBackground());
-            }
-
-            // IMPORTANT: set width so JTextArea can calculate wrapped height correctly
-            int colWidth = table.getColumnModel().getColumn(column).getWidth();
-            setSize(colWidth, Short.MAX_VALUE);
-
             return this;
+        }
+    }
+
+    class InfoButtonEditor extends DefaultCellEditor implements ActionListener {
+        private final JButton button = new JButton("ⓘ Info");
+        private int currentViewRow = -1;
+
+        public InfoButtonEditor(JCheckBox checkBox) {
+            super(checkBox);
+
+            button.setFocusPainted(false);
+            button.setForeground(new Color(30, 90, 200));
+            button.setBorderPainted(false);
+            button.setContentAreaFilled(false);
+            button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            button.addActionListener(this);
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(
+                JTable table, Object value, boolean isSelected, int row, int column) {
+            currentViewRow = row;
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return "ⓘ Info";
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            fireEditingStopped();
+            if (currentViewRow < 0) return;
+            int modelRow = assignedTable.convertRowIndexToModel(currentViewRow);
+            showDetailsDialogForRow(modelRow);
         }
     }
 }

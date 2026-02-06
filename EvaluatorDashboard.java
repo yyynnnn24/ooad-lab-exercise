@@ -2,7 +2,8 @@ import java.awt.*;
 import java.io.File;
 import java.sql.*;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;    // Used for displaying tabular data in JTable
+import javax.swing.event.*;    // Used for displaying tabular data in JTable
+import javax.swing.table.DefaultTableModel;                   // For column resize listener
 
 // EvaluatorDashboard allows evaluators to view assigned submissions,
 // open uploaded presentation files, and perform evaluations.
@@ -82,7 +83,10 @@ public class EvaluatorDashboard extends JFrame {
         // Create table using the model
         assignedTable = new JTable(model);
         add(new JScrollPane(assignedTable), BorderLayout.CENTER);
-        
+
+        // ✅ NEW: enable wrap for Title + Abstract (no logic change)
+        enableWrappedColumns();
+
         // Panel containing action buttons
         JPanel btnPanel = new JPanel();
         JButton refreshBtn = new JButton("Refresh");
@@ -114,24 +118,23 @@ public class EvaluatorDashboard extends JFrame {
 
         // SQL query retrieves assigned submissions along with evaluation status and score
         String sql =
-    "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
-    "       s.title, s.abstract, s.type, s.filepath, " +
-    "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
-    "       COALESCE(e.total, '-') AS my_total " +
-    "FROM assignments a " +
-    "JOIN sessions sess ON sess.session_id = a.session_id " +
-    "JOIN users u ON a.student_id = u.user_id " +
-       // Only pick the latest submission for that student + session type
-    "JOIN submissions s ON s.submit_id = ( " +
-    "    SELECT MAX(s2.submit_id) " +
-    "    FROM submissions s2 " +
-    "    WHERE s2.student_id = u.user_id " +
-    "      AND s2.type = sess.session_type " +
-    ") "  +
-    "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
-    "WHERE a.evaluator_id = ? " +
-    "ORDER BY s.submit_id DESC;";
-
+            "SELECT s.submit_id, u.user_id AS student_id, u.username AS student_name, " +
+            "       s.title, s.abstract, s.type, s.filepath, " +
+            "       CASE WHEN e.eval_id IS NULL THEN 'Not Evaluated' ELSE 'Evaluated' END AS status, " +
+            "       COALESCE(e.total, '-') AS my_total " +
+            "FROM assignments a " +
+            "JOIN sessions sess ON sess.session_id = a.session_id " +
+            "JOIN users u ON a.student_id = u.user_id " +
+            // Only pick the latest submission for that student + session type
+            "JOIN submissions s ON s.submit_id = ( " +
+            "    SELECT MAX(s2.submit_id) " +
+            "    FROM submissions s2 " +
+            "    WHERE s2.student_id = u.user_id " +
+            "      AND s2.type = sess.session_type " +
+            ") "  +
+            "LEFT JOIN evaluations e ON e.submit_id = s.submit_id AND e.evaluator_id = a.evaluator_id " +
+            "WHERE a.evaluator_id = ? " +
+            "ORDER BY s.submit_id DESC;";
 
         try (Connection conn = DatabaseHandler.connect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -156,6 +159,9 @@ public class EvaluatorDashboard extends JFrame {
                     title, abstractText, type, status, myTotal, filepath
                 });
             }
+
+            // ✅ NEW: after loading rows, recompute row heights for wrapping
+            updateRowHeights();
 
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
@@ -226,5 +232,96 @@ public class EvaluatorDashboard extends JFrame {
     // Allows external components to refresh the evaluator dashboard
     public void refresh() {
         loadAssigned();
+    }
+
+    // ============================================================
+    // ✅ NEW PART ONLY: wrap Title + Research Abstract automatically
+    // ============================================================
+
+    // Enable auto wrap + auto row height for Title & Abstract columns
+    private void enableWrappedColumns() {
+        // Wrap renderer for long text
+        WrapTextCellRenderer wrapRenderer = new WrapTextCellRenderer();
+
+        // Apply to Title and Research Abstract columns (by column name)
+        setWrapRendererByName("Title", wrapRenderer);
+        setWrapRendererByName("Research Abstract", wrapRenderer);
+        setWrapRendererByName("File Path", wrapRenderer); 
+
+
+        // Recalculate row height when column width changes (window resize / user resize)
+        assignedTable.getColumnModel().addColumnModelListener(new TableColumnModelListener() {
+            public void columnAdded(TableColumnModelEvent e) {}
+            public void columnRemoved(TableColumnModelEvent e) {}
+            public void columnMoved(TableColumnModelEvent e) {}
+            public void columnSelectionChanged(ListSelectionEvent e) {}
+
+            public void columnMarginChanged(ChangeEvent e) {
+                updateRowHeights();
+            }
+        });
+    }
+
+    private void setWrapRendererByName(String colName, WrapTextCellRenderer renderer) {
+        int col = model.findColumn(colName);
+        if (col >= 0) {
+            assignedTable.getColumnModel().getColumn(col).setCellRenderer(renderer);
+        }
+    }
+
+    // Recompute each row height based on wrapped content
+    private void updateRowHeights() {
+        int titleCol = model.findColumn("Title");
+        int absCol = model.findColumn("Research Abstract");
+
+        for (int row = 0; row < assignedTable.getRowCount(); row++) {
+            int maxHeight = assignedTable.getRowHeight(); // default
+
+            if (titleCol >= 0) maxHeight = Math.max(maxHeight, getPreferredRowHeight(row, titleCol));
+            if (absCol >= 0)   maxHeight = Math.max(maxHeight, getPreferredRowHeight(row, absCol));
+
+            assignedTable.setRowHeight(row, maxHeight);
+        }
+    }
+
+    private int getPreferredRowHeight(int row, int col) {
+        Component comp = assignedTable.prepareRenderer(
+                assignedTable.getCellRenderer(row, col), row, col);
+
+        int prefH = comp.getPreferredSize().height;
+        return prefH + 6; // padding
+    }
+
+    // Renderer that wraps text in JTable cells
+    static class WrapTextCellRenderer extends JTextArea implements javax.swing.table.TableCellRenderer {
+        public WrapTextCellRenderer() {
+            setLineWrap(true);
+            setWrapStyleWord(true);
+            setOpaque(true);
+            setEditable(false);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
+
+            setText(value == null ? "" : value.toString());
+            setFont(table.getFont());
+
+            if (isSelected) {
+                setForeground(table.getSelectionForeground());
+                setBackground(table.getSelectionBackground());
+            } else {
+                setForeground(table.getForeground());
+                setBackground(table.getBackground());
+            }
+
+            // IMPORTANT: set width so JTextArea can calculate wrapped height correctly
+            int colWidth = table.getColumnModel().getColumn(column).getWidth();
+            setSize(colWidth, Short.MAX_VALUE);
+
+            return this;
+        }
     }
 }
